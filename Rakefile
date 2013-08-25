@@ -1,13 +1,18 @@
 require "fileutils"
-require "./fuzzy_locale"
-I18n.locale = :fuzzy
 require "active_support/inflector"
 require 'yaml'
+
+require "./fuzzy_locale"
+I18n.locale = :fuzzy
+require "./spread"
 
 desc "Unmount the player"
 task :umount do
   %x{umount #{mount_point}}
 end
+
+desc "Sync podcasts to the player"
+task :sync => [:copy, :playlists]
 
 desc "Copy podcasts to the player"
 task :copy do
@@ -70,10 +75,18 @@ def update_playlists root
   FileUtils.mkdir_p playlists_dir
   groups = config["groups"] || {}
   groups = make_group_regexes groups
-  puts "groups: #{groups}"
-
-  tracks = find_tracks podcasts_dir, groups
-  puts "tracks: #{YAML.dump tracks}"
+  tracks = find_tracks(podcasts_dir, groups)
+  tracks = Hash[ tracks.map do |group,list|
+    list = list.map{|track| track.sub(%r[#{root}/*],"/")}
+    [ group, spread_by_dirname(list) ]
+  end ]
+  tracks["podcasts"] = Spread.spread *tracks.values
+  tracks.each do |list,tracks|
+    m3u_path = File.join playlists_dir, list + ".m3u"
+    File.open(m3u_path, "w") do |io|
+      io.puts tracks
+    end
+  end
 end
 
 def make_group_regexes groups
@@ -88,4 +101,8 @@ def find_tracks root, groups
     tracks[group] += Dir[File.join(subdir, track_glob)]
     tracks
   end
+end
+
+def spread_by_dirname tracks
+  Spread.spread *tracks.group_by{|track| File.dirname track}.values
 end
