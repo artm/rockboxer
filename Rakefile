@@ -1,14 +1,11 @@
-require "fileutils"
-require "active_support/inflector"
-require 'yaml'
-
-require "./fuzzy_locale"
-I18n.locale = :fuzzy
-require "./spread"
+MOUNT_POINT = "/media/artm/0123-4567"
+PODCASTS_DESTINATION = File.join MOUNT_POINT, "PODCASTS"
+TRACKS_GLOB = "*.{mp3,ogg}"
+PODCASTS_SOURCE = "/home/artm/gPodder/Downloads"
 
 desc "Unmount the player"
 task :umount do
-  %x{umount #{mount_point}}
+  %x{umount #{MOUNT_POINT}}
 end
 
 desc "Sync podcasts to the player"
@@ -16,53 +13,37 @@ task :sync => [:copy, :playlists]
 
 desc "Copy podcasts to the player"
 task :copy do
-  copy_podcasts source, podcasts_path
+  copy_podcasts PODCASTS_SOURCE, PODCASTS_DESTINATION
 end
 
 desc "Update playlists on the device"
 task :playlists do
-  update_playlists mount_point
+  update_playlists MOUNT_POINT
 end
 
 private
 
-def mount_point
-  "/media/artm/0123-4567"
-end
-
-def podcasts_path
-  File.join mount_point, "PODCASTS"
-end
-
-def track_glob
-  "*.{mp3,ogg}"
-end
-
 def space
-  df_line = %x{df -k #{mount_point}}.split("\n").last
+  df_line = %x{df -k #{MOUNT_POINT}}.split("\n").last
   df_line.split(/ +/)[3].to_i
 end
 
-def source
-  "/home/artm/gPodder/Downloads"
+def move_file source, destination
+  FileUtils.mkdir_p File.dirname destination
+  FileUtils.mv source, destination
 end
 
 def copy_podcasts source, podcasts_path
   left = space
-  Dir.glob("#{source}/**/*.mp3").sort_by do |path|
+  Dir.glob("#{source}/**/#{TRACKS_GLOB}").sort_by do |path|
     File.mtime(path)
   end.each do |path|
     file_size = File.size(path) / 1000
-    if left > file_size
-      left -= file_size
-      dst = path.sub(/^#{source}/, podcasts_path)
-      dst = ActiveSupport::Inflector.transliterate(dst, "_")
-      puts dst
-      unless File.exists? dst
-        FileUtils.mkdir_p( File.dirname dst )
-        FileUtils.mv( path, dst )
-      end
-    end
+    break unless left > file_size
+    left -= file_size
+    dst = path.sub(/^#{source}/, podcasts_path)
+    dst = ActiveSupport::Inflector.transliterate(dst, "_")
+    move_file path, dst unless File.exists? dst
   end
 end
 
@@ -98,7 +79,7 @@ def find_tracks root, groups
     group,pattern = groups.find{|group,pattern| pattern =~ subdir}
     group ||= 'misc'
     tracks[group] ||= []
-    tracks[group] += Dir[File.join(subdir, track_glob)]
+    tracks[group] += Dir[File.join(subdir, TRACKS_GLOB)]
     tracks
   end
 end
@@ -106,3 +87,14 @@ end
 def spread_by_dirname tracks
   Spread.spread *tracks.group_by{|track| File.dirname track}.values
 end
+
+BEGIN {
+  require "fileutils"
+  require "active_support/inflector"
+  require 'yaml'
+
+  require "./fuzzy_locale"
+  I18n.locale = :fuzzy
+  require "./spread"
+
+}
