@@ -40,6 +40,10 @@ module RockPod
     Pathname(path).relative_path_from(Pathname(dir)).to_s
   end
 
+  def player_path track
+    File.join "/", relative_path(MOUNT_POINT, track)
+  end
+
   def move_file source
     relative = relative_path PODCASTS_SOURCE, source
     puts relative
@@ -49,26 +53,48 @@ module RockPod
   end
 
   def update_playlists
-    playlists_dir = File.join MOUNT_POINT, "Playlists"
-    podcasts_dir = File.join MOUNT_POINT, "PODCASTS"
-    config_file = File.join podcasts_dir, "podcasts.yml"
-    config = {}
-    config = YAML.load_file config_file if File.exists? config_file
     FileUtils.mkdir_p playlists_dir
-    groups = config["groups"] || {}
-    groups = make_group_regexes groups
-    tracks = find_tracks(podcasts_dir, groups)
-    tracks = Hash[ tracks.map do |group,list|
-      list = list.map{|track| track.sub(%r[#{MOUNT_POINT}/*],"/")}
+    groups = Hash[ find_tracks(podcasts_dir, groups).map do |group,list|
+      list = list.map{|track| player_path track }
       [ group, spread_by_dirname(list) ]
     end ]
-    tracks["podcasts"] = Spread.spread *tracks.values
-    tracks.each do |list,tracks|
-      m3u_path = File.join playlists_dir, list + ".m3u"
-      File.open(m3u_path, "w") do |io|
-        io.puts tracks
-      end
+    groups["podcasts"] = Spread.spread *groups.values
+    groups.each {|group,tracks| save_playlist group, tracks }
+  end
+
+  def save_playlist group, tracks
+    m3u_path = File.join playlists_dir, group + ".m3u"
+    File.open(m3u_path, "w") do |io|
+      io.puts tracks
     end
+  end
+
+  def playlists_dir
+    File.join MOUNT_POINT, "Playlists"
+  end
+
+  def podcasts_dir
+    File.join MOUNT_POINT, "PODCASTS"
+  end
+
+  def config_file
+    File.join podcasts_dir, "podcasts.yml"
+  end
+
+  def load_config
+    if File.exists? config_file
+      YAML.load_file config_file
+    else
+      {}
+    end
+  end
+
+  def config
+    @config ||= load_config
+  end
+
+  def groups
+    @groups ||= make_group_regexes config["groups"] || {}
   end
 
   def make_group_regexes groups
