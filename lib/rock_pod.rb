@@ -5,27 +5,31 @@ require 'yaml'
 require "spread"
 
 module RockPod
-  KEEP_AVAILABLE = 1000
-  BLOCK_SIZE = 1000
+  BLOCK_SIZE = 512
+  KEEP_AVAILABLE_BYTES = 500_000
 
   def umount
     UMOUNT_POINTS.each {|path| sh "umount #{path}" }
   end
 
   def sh command
-    puts command
+    puts "SH: #{command}"
     %x{#{command}}
   end
 
   def copy_podcasts
     gpodder_tracks.sort_by do |path|
       File.mtime(path)
-    end.reduce( available_space - KEEP_AVAILABLE ) do |blocks_left,path|
+    end.reduce( available_blocks - keep_available_blocks ) do |blocks_left,path|
       file_size = file_size_in_blocks path
       break unless blocks_left > file_size
       move_file path
       blocks_left - file_size
     end
+  end
+
+  def keep_available_blocks
+    KEEP_AVAILABLE_BYTES / BLOCK_SIZE
   end
 
   def gpodder_tracks
@@ -36,8 +40,8 @@ module RockPod
     File.size(path) / BLOCK_SIZE
   end
 
-  def available_space
-    df_line = sh("df -k #{MOUNT_POINT}").split("\n").last
+  def available_blocks
+    df_line = sh("df -B #{BLOCK_SIZE} #{MOUNT_POINT}").split("\n").last
     df_line.split(/ +/)[3].to_i
   end
 
@@ -51,7 +55,7 @@ module RockPod
 
   def move_file source
     relative = relative_path PODCASTS_SOURCE, source
-    puts relative
+    puts "+ #{relative}"
     destination = File.join( PODCASTS_DESTINATION, relative )
     FileUtils.mkdir_p File.dirname destination
     FileUtils.mv source, destination
