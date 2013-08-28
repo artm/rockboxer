@@ -2,10 +2,11 @@ $LOAD_PATH << File.expand_path(File.join(File.dirname(__FILE__), 'lib'))
 require 'rock_pod'
 include RockPod
 
-MOUNT_POINT = "/media/artm/0123-4567"
+MOUNT_POINT = "/media/artm/ROCKBOX_4G"
 PODCASTS_DESTINATION = File.join MOUNT_POINT, "PODCASTS"
 TRACKS_GLOB = "*.{mp3,ogg}"
 PODCASTS_SOURCE = "/home/artm/gPodder/Downloads"
+UMOUNT_POINTS = [MOUNT_POINT, "/media/artm/MUSIC_8G"]
 
 desc "Unmount the player"
 task :umount do

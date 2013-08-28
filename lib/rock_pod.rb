@@ -9,7 +9,12 @@ module RockPod
   BLOCK_SIZE = 1000
 
   def umount
-    %x{umount #{MOUNT_POINT}}
+    UMOUNT_POINTS.each {|path| sh "umount #{path}" }
+  end
+
+  def sh command
+    puts command
+    %x{#{command}}
   end
 
   def copy_podcasts
@@ -32,7 +37,7 @@ module RockPod
   end
 
   def available_space
-    df_line = %x{df -k #{MOUNT_POINT}}.split("\n").last
+    df_line = sh("df -k #{MOUNT_POINT}").split("\n").last
     df_line.split(/ +/)[3].to_i
   end
 
