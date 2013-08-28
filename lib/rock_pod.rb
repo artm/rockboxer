@@ -54,7 +54,7 @@ module RockPod
 
   def update_playlists
     FileUtils.mkdir_p playlists_dir
-    groups = Hash[ find_tracks(podcasts_dir, groups).map do |group,list|
+    groups = Hash[ find_tracks(podcasts_dir, self.groups).map do |group,list|
       list = list.map{|track| player_path track }
       [ group, spread_by_dirname(list) ]
     end ]
@@ -64,9 +64,8 @@ module RockPod
 
   def save_playlist group, tracks
     m3u_path = File.join playlists_dir, group + ".m3u"
-    File.open(m3u_path, "w") do |io|
-      io.puts tracks
-    end
+    puts "%4d tracks @ %s" % [tracks.count, group]
+    File.open(m3u_path, "w") { |io| io.puts tracks }
   end
 
   def playlists_dir
