@@ -24,13 +24,14 @@ module RockPod
   end
 
   def update_playlists
+    groupped = groups.group_tracks rockbox_tracks
+    groupped.each do |group, list|
+      groupped[group] = spread_by_dirname(list.map{|track| player_path track})
+    end
+    groupped["podcasts"] = Spread.spread *groupped.values
+
     FileUtils.mkdir_p playlists_dir
-    groups = Hash[ groupped_tracks(podcasts_dir, self.groups).map do |group,list|
-      list = list.map{|track| player_path track }
-      [ group, spread_by_dirname(list) ]
-    end ]
-    groups["podcasts"] = Spread.spread *groups.values
-    groups.each {|group,tracks| save_playlist group, tracks }
+    groupped.each {|group,tracks| save_playlist group, tracks }
   end
 
   def keep_available_blocks
@@ -38,7 +39,11 @@ module RockPod
   end
 
   def gpodder_tracks
-    Dir.glob("#{PODCASTS_SOURCE}/**/#{TRACKS_GLOB}")
+    Dir.glob("#{PODCASTS_SOURCE}/*/#{TRACKS_GLOB}")
+  end
+
+  def rockbox_tracks
+    Dir.glob("#{PODCASTS_DESTINATION}/*/#{TRACKS_GLOB}")
   end
 
   def file_size_in_blocks path
@@ -102,29 +107,30 @@ module RockPod
   end
 
   def groups
-    @groups ||= make_group_regexes config["groups"] || {}
+    @groups ||= (make_group_regexes config["groups"] || {}).extend TrackGroups
   end
 
   def make_group_regexes groups
     groups.map{|name,patterns| [name,Regexp.union(patterns)]}
   end
 
-  def list_hash
-    Hash.new {|hash,key| hash[key] = []}
-  end
+  module TrackGroups
+    def group_tracks tracks
+      tracks.reduce(list_hash) do |groupped,track|
+        group = track_group track
+        groupped[group] << track
+        groupped
+      end
+    end
 
-  def track_group track, groups
-    dir = File.basename File.dirname track
-    group,pattern = groups.find{|group,pattern| pattern =~ dir}
-    group
-  end
+    def track_group track
+      dir = File.basename File.dirname track
+      group, pattern = find{|group,pattern| pattern =~ dir}
+      group || "misc"
+    end
 
-  def groupped_tracks root, groups
-    Dir[File.join(root, "*/")].inject(list_hash) do |tracks,subdir|
-      group,pattern = groups.find{|group,pattern| pattern =~ subdir}
-      group ||= 'misc'
-      tracks[group] += Dir[File.join(subdir, TRACKS_GLOB)]
-      tracks
+    def list_hash
+      Hash.new {|hash,key| hash[key] = []}
     end
   end
 
