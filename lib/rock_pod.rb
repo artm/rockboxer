@@ -12,11 +12,6 @@ module RockPod
     UMOUNT_POINTS.each {|path| sh "umount #{path}" }
   end
 
-  def sh command
-    puts "SH: #{command}"
-    %x{#{command}}
-  end
-
   def copy_podcasts
     gpodder_tracks.sort_by do |path|
       File.mtime(path)
@@ -26,6 +21,16 @@ module RockPod
       move_file path
       blocks_left - file_size
     end
+  end
+
+  def update_playlists
+    FileUtils.mkdir_p playlists_dir
+    groups = Hash[ groupped_tracks(podcasts_dir, self.groups).map do |group,list|
+      list = list.map{|track| player_path track }
+      [ group, spread_by_dirname(list) ]
+    end ]
+    groups["podcasts"] = Spread.spread *groups.values
+    groups.each {|group,tracks| save_playlist group, tracks }
   end
 
   def keep_available_blocks
@@ -53,22 +58,17 @@ module RockPod
     File.join "/", relative_path(MOUNT_POINT, track)
   end
 
+  def sh command
+    puts "SH: #{command}"
+    %x{#{command}}
+  end
+
   def move_file source
     relative = relative_path PODCASTS_SOURCE, source
     puts "+ #{relative}"
     destination = File.join( PODCASTS_DESTINATION, relative )
     FileUtils.mkdir_p File.dirname destination
     FileUtils.mv source, destination
-  end
-
-  def update_playlists
-    FileUtils.mkdir_p playlists_dir
-    groups = Hash[ find_tracks(podcasts_dir, self.groups).map do |group,list|
-      list = list.map{|track| player_path track }
-      [ group, spread_by_dirname(list) ]
-    end ]
-    groups["podcasts"] = Spread.spread *groups.values
-    groups.each {|group,tracks| save_playlist group, tracks }
   end
 
   def save_playlist group, tracks
@@ -109,11 +109,20 @@ module RockPod
     groups.map{|name,patterns| [name,Regexp.union(patterns)]}
   end
 
-  def find_tracks root, groups
-    Dir[File.join(root, "*/")].inject({}) do |tracks,subdir|
+  def list_hash
+    Hash.new {|hash,key| hash[key] = []}
+  end
+
+  def track_group track, groups
+    dir = File.basename File.dirname track
+    group,pattern = groups.find{|group,pattern| pattern =~ dir}
+    group
+  end
+
+  def groupped_tracks root, groups
+    Dir[File.join(root, "*/")].inject(list_hash) do |tracks,subdir|
       group,pattern = groups.find{|group,pattern| pattern =~ subdir}
       group ||= 'misc'
-      tracks[group] ||= []
       tracks[group] += Dir[File.join(subdir, TRACKS_GLOB)]
       tracks
     end
