@@ -51,7 +51,7 @@ module RockPod
   end
 
   def available_blocks
-    df_line = sh("df -B #{BLOCK_SIZE} #{MOUNT_POINT}").split("\n").last
+    df_line = %x{df -B #{BLOCK_SIZE} #{MOUNT_POINT}}.split("\n").last
     df_line.split(/ +/)[3].to_i
   end
 
@@ -61,11 +61,6 @@ module RockPod
 
   def player_path track
     File.join "/", relative_path(MOUNT_POINT, track)
-  end
-
-  def sh command
-    puts "SH: #{command}"
-    %x{#{command}}
   end
 
   def move_file source

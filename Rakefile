@@ -18,10 +18,12 @@ task :sync => [:copy, :playlists]
 
 desc "Copy podcasts to the player"
 task :copy do
+  puts "\nMoving podcast episodes to the player"
   copy_podcasts
 end
 
 desc "Update playlists on the device"
 task :playlists do
+  puts "\nUpdating playlists"
   update_playlists
 end
