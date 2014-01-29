@@ -64,11 +64,15 @@ module RockPod
   end
 
   def move_file source
-    relative = relative_path PODCASTS_SOURCE, source
+    relative = sanitize_path(relative_path PODCASTS_SOURCE, source)
     puts "+ #{relative}"
     destination = File.join( PODCASTS_DESTINATION, relative )
     FileUtils.mkdir_p File.dirname destination
     FileUtils.mv source, destination
+  end
+
+  def sanitize_path path
+    path.gsub(/[»]+/,"_")
   end
 
   def save_playlist group, tracks
