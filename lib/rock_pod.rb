@@ -8,10 +8,6 @@ module RockPod
   BLOCK_SIZE = 512
   KEEP_AVAILABLE_BYTES = 500_000
 
-  def umount
-    UMOUNT_POINTS.each {|path| sh "umount #{path}" }
-  end
-
   def copy_podcasts
     gpodder_tracks.sort_by do |path|
       File.mtime(path)

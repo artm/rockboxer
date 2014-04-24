@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+
+MOUNT_ROOT = "/media/artm"
+MOUNT_POINT = File.join(MOUNT_ROOT, "ROCKBOX_4G")
+PODCASTS_DESTINATION = File.join MOUNT_POINT, "PODCASTS"
+TRACKS_GLOB = "*.{mp3,ogg}"
+PODCASTS_SOURCE = "/home/artm/Sync/Pod/podcasts"
+UMOUNT_POINTS = [MOUNT_POINT, File.join(MOUNT_ROOT, "MUSIC_8G")]
+
+END {
+  Rock.start(ARGV)
+}
+
+class Rock < Thor
+  include RockPod
+
+  desc "unmount", "Unmount the player"
+  def umount
+    UMOUNT_POINTS.each {|path| sh "umount #{path}" }
+  end
+
+  desc "sync", "Sync podcasts to the player"
+  def sync
+    copy
+    playlists
+  end
+
+  desc "copy", "Copy podcasts to the player"
+  def copy
+    puts "\nMoving podcast episodes to the player"
+    copy_podcasts
+  end
+
+  desc "playlists", "Update playlists on the device"
+  def playlists
+    puts "\nUpdating playlists"
+    update_playlists
+  end
+end
+
+BEGIN {
+  $LOAD_PATH << File.expand_path("../lib", __FILE__)
+
+  require "bundler/setup"
+  require "thor"
+  require "rock_pod"
+}
