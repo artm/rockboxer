@@ -1,23 +1,16 @@
 #!/usr/bin/env ruby
 
-MOUNT_ROOT = "/media/artm"
-MOUNT_POINT = File.join(MOUNT_ROOT, "ROCKBOX_4G")
-PODCASTS_DESTINATION = File.join MOUNT_POINT, "PODCASTS"
-TRACKS_GLOB = "*.{mp3,ogg}"
-PODCASTS_SOURCE = "/home/artm/Sync/Pod/podcasts"
-UMOUNT_POINTS = [MOUNT_POINT, File.join(MOUNT_ROOT, "MUSIC_8G")]
-
 END {
   Rock.start(ARGV)
 }
 
 class Rock < Thor
+  class_option :mount_root, default: "/media/artm"
+  class_option :main_dir, default: "ROCKBOX_4G"
+  class_option :podcasts_dir, default: "PODCASTS"
+  class_option :podcasts_source, default: "/home/artm/Sync/Pod/podcasts"
+  class_option :tracks_glob, default: "*.{mp3,ogg}"
   include RockPod
-
-  desc "unmount", "Unmount the player"
-  def umount
-    UMOUNT_POINTS.each {|path| sh "umount #{path}" }
-  end
 
   desc "sync", "Sync podcasts to the player"
   def sync
@@ -35,6 +28,26 @@ class Rock < Thor
   def playlists
     puts "\nUpdating playlists"
     update_playlists
+  end
+
+  desc "unmount", "Unmount the player"
+  option :external_dir, default: "MUSIC_8G"
+  def umount
+    [:main_dir, :external_dir].each do |dir_option|
+      puts "umount #{full_path(dir_option)}"
+    end
+  end
+
+  private
+
+  def full_path *args
+    args = [:mount_root] + args
+    components = args.map{|arg| options[arg]}
+    File.join(*components)
+  end
+
+  def main_path
+    full_path(:main_dir)
   end
 end
 
