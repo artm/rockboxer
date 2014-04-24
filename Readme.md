@@ -1,3 +1,23 @@
+# Spring 2014 rewrite
+
+## use thor in stead of rake
+
+Just to learn thor probably. And it *seems* like a better match for the task.
+
+## external configuration file
+
+So the same source can be used on every ruby-enabled box where files are synced.
+
+## use rsync to sync
+
+To avoid reinventing the wheel
+
+## one playlist per folder
+
+Less configuration, keep it simpler.
+
+Adjusted the mashpodder config to drop files into folders corresponding to playlists.
+
 # Rockboxer
 
 I use this to manage podcasts on my Rockbox music player.
