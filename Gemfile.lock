@@ -54,3 +54,4 @@ DEPENDENCIES
   guard
   guard-rspec
   rspec
+  thor
