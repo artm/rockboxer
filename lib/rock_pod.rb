@@ -19,27 +19,12 @@ module RockPod
     end
   end
 
-  def update_playlists
-    groupped = groups.group_tracks rockbox_tracks
-    groupped.each do |group, list|
-      groupped[group] = spread_by_dirname(list.map{|track| player_path track})
-    end
-    groupped["podcasts"] = Spread.spread *groupped.values
-
-    FileUtils.mkdir_p playlists_dir
-    groupped.each {|group,tracks| save_playlist group, tracks }
-  end
-
   def keep_available_blocks
     KEEP_AVAILABLE_BYTES / BLOCK_SIZE
   end
 
   def gpodder_tracks
     Dir.glob("#{PODCASTS_SOURCE}/*/#{TRACKS_GLOB}")
-  end
-
-  def rockbox_tracks
-    Dir.glob("#{PODCASTS_DESTINATION}/*/#{TRACKS_GLOB}")
   end
 
   def file_size_in_blocks path
@@ -53,10 +38,6 @@ module RockPod
 
   def relative_path dir, path
     Pathname(path).relative_path_from(Pathname(dir)).to_s
-  end
-
-  def player_path track
-    File.join "/", relative_path(MOUNT_POINT, track)
   end
 
   def move_file source
@@ -83,54 +64,6 @@ module RockPod
 
   def podcasts_dir
     File.join MOUNT_POINT, "PODCASTS"
-  end
-
-  def config_file
-    File.join podcasts_dir, "podcasts.yml"
-  end
-
-  def load_config
-    if File.exists? config_file
-      YAML.load_file config_file
-    else
-      {}
-    end
-  end
-
-  def config
-    @config ||= load_config
-  end
-
-  def groups
-    @groups ||= (make_group_regexes config["groups"] || {}).extend TrackGroups
-  end
-
-  def make_group_regexes groups
-    groups.map{|name,patterns| [name,Regexp.union(patterns)]}
-  end
-
-  module TrackGroups
-    def group_tracks tracks
-      tracks.reduce(list_hash) do |groupped,track|
-        group = track_group track
-        groupped[group] << track
-        groupped
-      end
-    end
-
-    def track_group track
-      dir = File.basename File.dirname track
-      group, pattern = find{|group,pattern| pattern =~ dir}
-      group || "misc"
-    end
-
-    def list_hash
-      Hash.new {|hash,key| hash[key] = []}
-    end
-  end
-
-  def spread_by_dirname tracks
-    Spread.spread *tracks.group_by{|track| File.dirname track}.values
   end
 
 end

@@ -9,6 +9,7 @@ class Rock < Thor
   class_option :podcasts_source, default: "/home/artm/Sync/Pod/podcasts"
   class_option :tracks_glob, default: "*.{mp3,ogg}"
   class_option :keep_available_bytes, default: 500_000
+  class_option :config_file, default: "podcasts.yml"
 
   desc "sync", "Sync podcasts to the player"
   def sync
@@ -60,6 +61,11 @@ class Rock < Thor
     }
   end
 
+  def rockbox_tracks
+    Dir.glob("#{podcasts_destination}/*/#{options[:tracks_glob]}")
+  end
+
+
   def select_total_size_under tracks, total
     tracks.reduce( [total,[]] ) do |pair,path|
       blocks_left, collected = pair
@@ -108,6 +114,79 @@ class Rock < Thor
 
   def sanitize_path path
     path.gsub(/[»]+/,"_")
+  end
+
+  def update_playlists
+    groupped = groups.group_tracks rockbox_tracks
+    groupped.each do |group, list|
+      groupped[group] = spread_by_dirname(list.map{|track| player_path track})
+    end
+    groupped["podcasts"] = Spread.spread *groupped.values
+
+    FileUtils.mkdir_p playlists_dir
+    groupped.each {|group,tracks| save_playlist group, tracks }
+  end
+
+  def groups
+    @groups ||= (make_group_regexes config["groups"] || {}).extend TrackGroups
+  end
+
+  def make_group_regexes groups
+    groups.map{|name,patterns| [name,Regexp.union(patterns)]}
+  end
+
+  module TrackGroups
+    def group_tracks tracks
+      tracks.reduce(list_hash) do |groupped,track|
+        group = track_group track
+        groupped[group] << track
+        groupped
+      end
+    end
+
+    def track_group track
+      dir = File.basename File.dirname track
+      group, pattern = find{|group,pattern| pattern =~ dir}
+      group || "misc"
+    end
+
+    def list_hash
+      Hash.new {|hash,key| hash[key] = []}
+    end
+  end
+
+  def spread_by_dirname tracks
+    Spread.spread *tracks.group_by{|track| File.dirname track}.values
+  end
+
+  def config_file
+    File.join podcasts_destination, options[:config_file]
+  end
+
+  def load_config
+    if File.exists? config_file
+      YAML.load_file config_file
+    else
+      {}
+    end
+  end
+
+  def config
+    @config ||= load_config
+  end
+
+  def player_path track
+    File.join "/", relative_path(podcasts_mount_point, track)
+  end
+
+  def playlists_dir
+    File.join podcasts_mount_point, "Playlists"
+  end
+
+  def save_playlist group, tracks
+    m3u_path = File.join playlists_dir, group + ".m3u"
+    puts "%4d tracks @ %s" % [tracks.count, group]
+    File.open(m3u_path, "w") { |io| io.puts tracks }
   end
 
   BLOCK_SIZE = 512
