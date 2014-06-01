@@ -197,5 +197,6 @@ BEGIN {
 
   require "bundler/setup"
   require "thor"
-  require "rock_pod"
+  require "yaml"
+  require "spread"
 }
