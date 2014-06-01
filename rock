@@ -35,7 +35,8 @@ class Rock < Thor
   option :external_dir, default: "MUSIC_8G"
   def umount
     [:main_dir, :external_dir].each do |dir_option|
-      puts "umount #{full_path(dir_option)}"
+      path = full_path(dir_option)
+      system "umount #{path}" if Dir.exists?(path)
     end
   end
 
