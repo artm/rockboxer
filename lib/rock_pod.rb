@@ -9,7 +9,7 @@ module RockPod
   KEEP_AVAILABLE_BYTES = 500_000
 
   def copy_podcasts
-    gpodder_tracks.sort_by do |path|
+    gpodder_tracks(source_dir, glob).sort_by do |path|
       File.mtime(path)
     end.reduce( available_blocks - keep_available_blocks ) do |blocks_left,path|
       file_size = file_size_in_blocks path

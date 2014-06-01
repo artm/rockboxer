@@ -1,8 +1,6 @@
 #!/usr/bin/env ruby
 
-END {
-  Rock.start(ARGV)
-}
+END { Rock.start(ARGV) }
 
 class Rock < Thor
   class_option :mount_root, default: "/media/artm"
@@ -10,7 +8,7 @@ class Rock < Thor
   class_option :podcasts_dir, default: "PODCASTS"
   class_option :podcasts_source, default: "/home/artm/Sync/Pod/podcasts"
   class_option :tracks_glob, default: "*.{mp3,ogg}"
-  include RockPod
+  class_option :keep_available_bytes, default: 500_000
 
   desc "sync", "Sync podcasts to the player"
   def sync
@@ -21,7 +19,9 @@ class Rock < Thor
   desc "copy", "Copy podcasts to the player"
   def copy
     puts "\nMoving podcast episodes to the player"
-    copy_podcasts
+    select_tracks.each do |track|
+      move_file track
+    end
   end
 
   desc "playlists", "Update playlists on the device"
@@ -49,6 +49,68 @@ class Rock < Thor
   def main_path
     full_path(:main_dir)
   end
+
+  def select_tracks
+    select_total_size_under(incoming_tracks, available_for_podcasts)
+  end
+
+  def incoming_tracks
+    Dir.glob("#{options[:podcasts_source]}/*/#{options[:tracks_glob]}").sort_by{|track|
+      File.mtime(track)
+    }
+  end
+
+  def select_total_size_under tracks, total
+    tracks.reduce( [total,[]] ) do |pair,path|
+      blocks_left, collected = pair
+      file_size = file_size_in_blocks(path)
+      return collected unless blocks_left > file_size
+      [blocks_left - file_size, collected + [path]]
+    end
+  end
+
+  def available_for_podcasts
+    available_blocks - keep_available_blocks
+  end
+
+  def available_blocks
+    df_line = %x{df -B #{BLOCK_SIZE} #{podcasts_mount_point}}.split("\n").last
+    df_line.split(/ +/)[3].to_i
+  end
+
+  def podcasts_mount_point
+    File.join(options[:mount_root], options[:main_dir])
+  end
+
+  def podcasts_destination
+    File.join(podcasts_mount_point, options[:podcasts_dir])
+  end
+
+  def keep_available_blocks
+    options[:keep_available_bytes] / BLOCK_SIZE
+  end
+
+  def file_size_in_blocks path
+    File.size(path) / BLOCK_SIZE
+  end
+
+  def move_file source
+    relative = sanitize_path(relative_path(options[:podcasts_source], source))
+    puts "+ #{relative}"
+    destination = File.join( podcasts_destination, relative )
+    FileUtils.mkdir_p File.dirname destination
+    FileUtils.mv source, destination
+  end
+
+  def relative_path dir, path
+    Pathname(path).relative_path_from(Pathname(dir)).to_s
+  end
+
+  def sanitize_path path
+    path.gsub(/[»]+/,"_")
+  end
+
+  BLOCK_SIZE = 512
 end
 
 BEGIN {
