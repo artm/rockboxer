@@ -20,7 +20,7 @@ class Rock < Thor
   desc "copy", "Copy podcasts to the player"
   def copy
     puts "\nMoving podcast episodes to the player"
-    select_tracks.each do |track|
+    select_tracks.tap{|tracks| puts tracks}.each do |track|
       move_file track
     end
   end
@@ -73,7 +73,7 @@ class Rock < Thor
       file_size = file_size_in_blocks(path)
       return collected unless blocks_left > file_size
       [blocks_left - file_size, collected + [path]]
-    end
+    end[1]
   end
 
   def available_for_podcasts
