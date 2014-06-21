@@ -20,7 +20,7 @@ class Rock < Thor
   desc "copy", "Copy podcasts to the player"
   def copy
     puts "\nMoving podcast episodes to the player"
-    select_tracks.tap{|tracks| puts tracks}.each do |track|
+    select_tracks.each do |track|
       move_file track
     end
   end
